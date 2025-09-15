@@ -10,7 +10,8 @@ class LivroController extends Controller
 {
     public function index()
     {
-        $livros = Livro::latest()->paginate(10);
+        $livros = Livro::orderByDesc('id')->paginate(10);
+
         return view('livros.index', compact('livros'));
     }
 
@@ -21,25 +22,26 @@ class LivroController extends Controller
 
     public function store(Request $request)
     {
-        $mensagens = [
-            'titulo.required' => 'O título é obrigatório.',
-            'isbn.unique'     => 'Já existe um livro com este ISBN.',
-        ];
+        $validated = $request->validate([
+            'titulo' => ['required', 'string', 'max:255', 'unique:livros,titulo'],
+            'autor'  => ['nullable', 'string', 'max:255'],
+            'isbn'   => ['required', 'string', 'max:255', 'unique:livros,isbn'],
+            'ano'    => ['nullable', 'integer'],
+            'ativo'  => ['nullable', 'boolean'],
+        ]);
 
-        $dados = $request->validate([
-            'titulo' => ['required','string','max:255'],
-            'autor'  => ['nullable','string','max:255'],
-            'isbn'   => ['nullable','string','max:50','unique:livros,isbn'],
-            'ano'    => ['nullable','integer','between:1500,'.now()->year],
-            'ativo'  => ['sometimes','boolean'],
-        ], $mensagens);
+        $validated['ativo'] = $request->boolean('ativo');
 
-        // checkbox não enviado = false
-        $dados['ativo'] = $request->boolean('ativo');
+        Livro::create($validated);
 
-        Livro::create($dados);
+        return redirect()
+            ->route('livros.index')
+            ->with('success', '📚 Livro criado com sucesso!');
+    }
 
-        return redirect()->route('livros.index')->with('ok','Livro cadastrado!');
+    public function show(Livro $livro)
+    {
+        return view('livros.show', compact('livro'));
     }
 
     public function edit(Livro $livro)
@@ -49,33 +51,35 @@ class LivroController extends Controller
 
     public function update(Request $request, Livro $livro)
     {
-        $mensagens = [
-            'titulo.required' => 'O título é obrigatório.',
-            'isbn.unique'     => 'Já existe um livro com este ISBN.',
-        ];
-
-        $dados = $request->validate([
-            'titulo' => ['required','string','max:255'],
-            'autor'  => ['nullable','string','max:255'],
-            'isbn'   => [
-                'nullable','string','max:50',
-                Rule::unique('livros','isbn')->ignore($livro->id)
+        $validated = $request->validate([
+            'titulo' => [
+                'required', 'string', 'max:255',
+                Rule::unique('livros', 'titulo')->ignore($livro->id),
             ],
-            'ano'    => ['nullable','integer','between:1500,'.now()->year],
-            'ativo'  => ['sometimes','boolean'],
-        ], $mensagens);
+            'autor'  => ['nullable', 'string', 'max:255'],
+            'isbn'   => [
+                'required', 'string', 'max:255',
+                Rule::unique('livros', 'isbn')->ignore($livro->id),
+            ],
+            'ano'    => ['nullable', 'integer'],
+            'ativo'  => ['nullable', 'boolean'],
+        ]);
 
-        $dados['ativo'] = $request->boolean('ativo');
+        $validated['ativo'] = $request->boolean('ativo');
 
-        $livro->update($dados);
+        $livro->update($validated);
 
-        return redirect()->route('livros.index')->with('ok','Livro atualizado!');
+        return redirect()
+            ->route('livros.index')
+            ->with('success', '✏️ Livro atualizado com sucesso!');
     }
 
     public function destroy(Livro $livro)
     {
         $livro->delete();
 
-        return redirect()->route('livros.index')->with('ok','Livro excluído!');
+        return redirect()
+            ->route('livros.index')
+            ->with('success', '🗑️ Livro excluído com sucesso!');
     }
 }
